@@ -24,6 +24,12 @@ import dataset
 import imagenet
 import coco
 
+import subprocess
+import pandas as pd
+
+perf_output_dir = os.path.join('perf_output')
+perf_output_dir = os.path.abspath(perf_output_dir)
+
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("main")
 
@@ -216,6 +222,7 @@ def get_args():
     parser.add_argument("--performance-sample-count", type=int, help="performance sample count")
     parser.add_argument("--max-latency", type=float, help="mlperf max latency in pct tile")
     parser.add_argument("--samples-per-query", default=8, type=int, help="mlperf multi-stream samples per query")
+    parser.add_argument("--perf-events", type=str, help="perf event list")
     args = parser.parse_args()
 
     # don't use defaults in argparser. Instead we default to a dict, override that with a profile
@@ -542,6 +549,16 @@ def main():
     qsl = lg.ConstructQSL(count, performance_sample_count, ds.load_query_samples, ds.unload_query_samples)
 
     log.info("starting {}".format(scenario))
+
+    # call perf here
+    perf_output_filename = os.path.join(perf_output_dir, str(time.time_ns()))
+    args_str = json.dumps(vars(args))
+    print(args_str)
+
+    subprocess.Popen([
+     "echo \'{args_str}\' > {csv_path}; perf stat -x , -e {perf_events} -p {pid} -o {csv_path} --append".format(
+         args_str=args_str, pid=os.getpid(), csv_path=perf_output_filename, perf_events=args.perf_events)], shell=True)
+
     result_dict = {"good": 0, "total": 0, "scenario": str(scenario)}
     runner.start_run(result_dict, args.accuracy)
 
