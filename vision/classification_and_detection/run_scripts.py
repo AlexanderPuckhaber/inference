@@ -14,10 +14,10 @@ perf_hw_event_sets = [
 ]
 
 base_commands = [
-    './run_local.sh onnxruntime resnet50 cpu --dataset-path data/imagenet/'.format(os.path.join(dataset_folder, 'imagenet')),
+    './run_local.sh onnxruntime resnet50 cpu --dataset-path data/imagenet/ --model models/resnet50_v1.onnx --inputs input_tensor:0'.format(os.path.join(dataset_folder, 'imagenet')),
     './run_local.sh cpu --profile ssd-mobilenet-onnxruntime --dataset coco-300 --dataset-path {dataset_path} \
 --model models/ssd_mobilenet_v1_coco_2018_01_28.onnx'.format(dataset_path=os.path.join(dataset_folder, 'coco-300')),
-    './run_local.sh onnxruntime ssd-resnet34 cpu --dataset-path {dataset_path}'.format(dataset_path=os.path.join(dataset_folder, 'coco-1200'))
+    './run_local.sh onnxruntime ssd-resnet34 cpu --outputs detection_bboxes:0,detection_scores:0,detection_classes:0 --dataset-path {dataset_path} --model models/ssd_resnet34_mAP_20.2.onnx --inputs image:0'.format(dataset_path=os.path.join(dataset_folder, 'coco-1200'))
 ]
 
 command_list = []
