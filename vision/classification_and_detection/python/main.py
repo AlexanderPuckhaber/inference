@@ -223,6 +223,7 @@ def get_args():
     parser.add_argument("--max-latency", type=float, help="mlperf max latency in pct tile")
     parser.add_argument("--samples-per-query", default=8, type=int, help="mlperf multi-stream samples per query")
     parser.add_argument("--perf-events", type=str, help="perf event list")
+    parser.add_argument("--perf-enable-fifo", type=str, metavar='FILE', help="perf enable fifo")
     args = parser.parse_args()
 
     # don't use defaults in argparser. Instead we default to a dict, override that with a profile
@@ -555,9 +556,17 @@ def main():
     args_str = json.dumps(vars(args))
     print(args_str)
 
-    subprocess.Popen([
-     "echo \'{args_str}\' > {csv_path}; perf stat -x , -e {perf_events} -p {pid} -o {csv_path} --append".format(
-         args_str=args_str, pid=os.getpid(), csv_path=perf_output_filename, perf_events=args.perf_events)], shell=True)
+    if args.perf_enable_fifo is not None:
+        # enable perf
+        cmd = 'echo "enable" > {}'.format(args.perf_enable_fifo)
+        print('main.py: enable')
+        subprocess.Popen(cmd, shell=True).communicate()
+
+
+    # if args.perf_events is not None:
+    #     subprocess.Popen([
+    #     "echo \'{args_str}\' > {csv_path}; perf stat -x , -e {perf_events} -p {pid} -o {csv_path} --append".format(
+    #         args_str=args_str, pid=os.getpid(), csv_path=perf_output_filename, perf_events=args.perf_events)], shell=True)
 
     result_dict = {"good": 0, "total": 0, "scenario": str(scenario)}
     runner.start_run(result_dict, args.accuracy)
@@ -573,6 +582,12 @@ def main():
                 result_dict, last_timeing, time.time() - ds.last_loaded, args.accuracy)
 
     runner.finish()
+
+    if args.perf_enable_fifo is not None:
+        # disable perf
+        print('main.py: disable')
+        subprocess.Popen('echo "disable" > {}'.format(args.perf_enable_fifo), shell=True).communicate()
+
     lg.DestroyQSL(qsl)
     lg.DestroySUT(sut)
 
