@@ -3,11 +3,24 @@ import subprocess
 import random
 import time
 import pandas as pd
+import argparse
 
 perf_ctl_fifo_path = os.path.join('/tmp/', 'perf_ctl.fifo')
 perf_output_dir = 'perf_output'
 
 index_filename = 'perf_output_index.csv'
+
+parser = argparse.ArgumentParser()
+
+parser.add_argument('--perf-output-dir', type=str)
+parser.add_argument('--output-index-filename', type=str)
+
+args = parser.parse_args()
+
+perf_output_dir = args.perf_output_dir
+index_filename = args.output_index_filename
+
+
 
 
 dataset_folder = 'data'
@@ -25,14 +38,14 @@ perf_hw_event_sets = [
     # 'L1-dcache-loads,L1-dcache-load-misses,dTLB-load-misses,dtlb_load_misses.miss_causes_a_walk'
 
     # CFG_IPC
-    'CPU_CLK_UNHALTED,INST_RETIRED,CYCLE_ACTIVITY.STALLS_LDM_PENDING,FP_ARITH_INST_RETIRED.SCALAR',
+    'instructions,cpu_clk_unhalted.thread,inst_retired.any,cycle_activity.stalls_ldm_pending,fp_arith_inst_retired.scalar',
     # CFG_CACHEMPKI
-    'MEM_LOAD_UOPS_RETIRED.L1_MISS,L2_TRANS.RFO,MEM_LOAD_UOPS_RETIRED.L2_MISS,OFFCORE_REQUESTS.DEMAND_RFO',
+    'instructions,MEM_LOAD_UOPS_RETIRED.L1_MISS,L2_TRANS.RFO,MEM_LOAD_UOPS_RETIRED.L2_MISS,OFFCORE_REQUESTS.DEMAND_RFO',
     # CFG_BRANCHES
     # 'br_inst_retired.all_branches,br_misp_retired.all_branches,br_inst_retired:conditional,br_inst_retired:near_call',
-    'br_inst_retired.all_branches,br_misp_retired.all_branches',
+    'instructions,br_inst_retired.all_branches,br_misp_retired.all_branches',
     # CFG_TLBMPKI
-    'DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK,DTLB_STORE_MISSES.MISS_CAUSES_A_WALK,DTLB_LOAD_MISSES.STLB_HIT,DTLB_STORE_MISSES.STLB_HIT'
+    'instructions,DTLB_LOAD_MISSES.MISS_CAUSES_A_WALK,DTLB_STORE_MISSES.MISS_CAUSES_A_WALK,DTLB_LOAD_MISSES.STLB_HIT,DTLB_STORE_MISSES.STLB_HIT'
 ]
 
 base_commands = [
@@ -44,16 +57,16 @@ base_commands = [
 
 command_list = []
 
-# scenarios = ['Offline', 'SingleStream', 'MultiStream', 'Server'];
-scenarios = ['Offline']
+scenarios = ['Offline', 'SingleStream', 'MultiStream', 'Server'];
+# scenarios = ['Offline']
 
-# thread_counts = [1, 2, 4, 12]
-thread_counts = [1]
+thread_counts = [1, 2, 4, 8, 16, 32, 64, 128]
+# thread_counts = [1]
 
 # img_counts = [1, 2, 4, 8]
 img_counts = [8]
 
-num_samples = 4
+num_samples = 32
 
 '''
         subprocess.Popen([
@@ -63,7 +76,7 @@ num_samples = 4
 for perf_hw_event_set in perf_hw_event_sets:
     perf_event_str = perf_hw_event_set + ',' + perf_sw_events
 
-    perf_command = 'perf stat -I 100 -x , -D -1 -e {perf_events} --control fd:${ctl_fd}'.format(perf_events=perf_event_str, ctl_fd='{ctl_fd}')
+    perf_command = 'perf stat -I 20 -x , -D -1 -e {perf_events} --control fd:${ctl_fd}'.format(perf_events=perf_event_str, ctl_fd='{ctl_fd}')
 
     for sample in range(num_samples):
         for scenario in scenarios:
@@ -74,7 +87,7 @@ for perf_hw_event_set in perf_hw_event_sets:
                         common_args = '--scenario {scenario} --threads {threads} --count {count} --perf-enable-fifo {perf_ctl_fifo}'.format(scenario=scenario, threads=threads, count=count, perf_ctl_fifo = perf_ctl_fifo_path)
                         command = base_command + ' ' + common_args
                         print(command)
-                        command_list.append({'MLPerf_command': command, 'perf_command': perf_command, 'env_vars': env_vars, 'args': {'sample': sample, 'scenario': scenario, 'threads': threads, 'img_count': count, 'base_command': base_command}})
+                        command_list.append({'MLPerf_command': command, 'perf_command': perf_command, 'env_vars': env_vars, 'args': {'sample': sample, 'scenario': scenario, 'threads': threads, 'img_count': count, 'perf_events': perf_event_str, 'base_command': base_command}})
 
 random.shuffle(command_list)
 
@@ -125,7 +138,7 @@ for entry in command_list:
     index_list.append(index_row)
 
     df = pd.DataFrame.from_dict(index_list)
-    print(df)
+    # print(df)
     df.to_csv(index_filename)
 
     entry['perf_command'] = entry['perf_command'] + ' -o {}'.format(perf_output_filename)
